@@ -1,0 +1,38 @@
+<!-- [학습] 진입점: CSS와 외부 라이브러리를 준비한 뒤 React 앱을 실행합니다. -->
+<!-- [학습] 브라우저가 표준 HTML 방식으로 문서를 해석하도록 선언합니다. -->
+<!doctype html>
+<!-- [학습] 문서 전체의 시작입니다. lang="ko"는 주된 언어가 한국어임을 뜻합니다. -->
+<html lang="ko">
+<!-- [학습] 제목·문자 인코딩·디자인 파일 등 문서 설정을 담습니다. -->
+<head>
+  <!-- [학습] 한글을 포함한 문자를 UTF-8 방식으로 해석합니다. -->
+  <meta charset="utf-8">
+  <!-- [학습] 모바일 화면 너비를 기기에 맞추고 초기 배율을 1로 설정합니다. 실제 배치는 CSS가 담당합니다. -->
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- [학습] 브라우저 탭 제목입니다. 본문에 보이는 제목은 App.jsx에서 만듭니다. -->
+  <title>시오사쿠 | 재고관리 v2</title>
+  <!-- [학습] 현재 HTML 기준 frontend/styles/main.css의 디자인 규칙을 불러옵니다. -->
+  <link rel="stylesheet" href="./frontend/styles/main.css">
+<!-- [학습] 문서 설정 영역을 닫습니다. -->
+</head>
+<!-- [학습] 사용자가 보는 화면을 담는 본문 영역을 엽니다. -->
+<body>
+  <!-- [학습] React가 화면을 넣을 빈 자리입니다. App.jsx의 getElementById("root")와 이름이 같아야 합니다. -->
+  <div id="root"></div>
+  <!-- [학습] React를 로드합니다. useState·useEffect·useMemo 등 화면 상태 관리 기능을 제공합니다. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <!-- [학습] ReactDOM을 로드합니다. React 화면을 브라우저의 root 요소에 표시합니다. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <!-- [학습] Babel을 로드합니다. JSX 문법을 실행 가능한 JavaScript로 변환합니다. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+  <!-- [학습] Supabase 통신 라이브러리입니다. 연결 객체 생성·실제 요청은 별도 JS 파일에서 수행합니다. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <!-- [학습] Excel 읽기 도구입니다. 파일 선택 시 parsers/excel.js에서 사용합니다. 기존 버전을 유지한 상태입니다. -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Babel은 기존 방식대로 JSX만 변환하며, import/export로 파일을 연결합니다. -->
+  <!-- [학습] App.jsx를 Babel로 변환하고 모듈로 실행합니다. 일반 외부 JS는 앞에서 순서대로 로드됩니다. -->
+  <script type="text/babel" data-type="module" src="./frontend/App.jsx"></script>
+<!-- [학습] 본문 영역을 닫습니다. -->
+</body>
+<!-- [학습] HTML 문서를 종료합니다. -->
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "siosaku-inventory",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "check": "node scripts/verify-split.mjs"
+  }
+}
