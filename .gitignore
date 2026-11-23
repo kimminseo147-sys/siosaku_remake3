@@ -1,0 +1,13 @@
+# 비밀값: 절대 올리지 않음
+.env
+.env.*
+!.env.example
+# npm install / npm run build 결과물 (각자 만들어 씀)
+node_modules/
+dist/
+# 로컬 보관용 (GitHub에 올리지 않음)
+_v1_archive/
+_backup*/
+# 운영체제·편집기 파일
+.DS_Store
+Thumbs.db

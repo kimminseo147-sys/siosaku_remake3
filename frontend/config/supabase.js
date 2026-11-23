@@ -1,13 +1,31 @@
-// [학습] Supabase 연결 설정. 사용처: services/inventoryRepository.js.
+// [학습] 로그인(Supabase Auth) 전용 연결 설정. 사용처: services/authService.js
+// [학습] v1과 달리 이 객체로 DB 테이블을 읽거나 쓰지 않습니다. 데이터는 모두 서버 /api를 거칩니다.
+// [학습] 프로젝트 주소·공개키는 코드에 적지 않고 서버의 /api/config에서 받아옵니다(.env 한곳에서 관리).
+// [학습] npm 패키지 @supabase/supabase-js에서 가져옵니다(예전: CDN이 만든 전역 변수 window.supabase).
+import { createClient } from '@supabase/supabase-js';
 
+let configPromise = null, clientPromise = null;
 
-// [학습] 연결할 Supabase 프로젝트 주소입니다. 이 파일도 브라우저에서 실행되며 별도 백엔드는 아닙니다.
-const DB_URL="https://tpcctqnfrtzfbdktwboa.supabase.co";
-// Publishable key는 공개용 식별자입니다. 실제 DB 보호에는 반드시 Supabase RLS가 필요합니다.
-// [학습] 공개용 프로젝트 키입니다. 키를 숨기는 대신 인증·DB 권한 정책으로 데이터 접근을 제한해야 합니다.
-const DB_PUBLIC_KEY="sb_publishable_SYTAm88X-7Qk2MwGCFIvKA_AC-1opTW";
-// [학습] 앞서 HTML에서 로드한 window.supabase로 통신 객체를 한 번 만듭니다. DB 요청 함수들이 이 객체를 공유합니다.
-const db=window.supabase.createClient(DB_URL,DB_PUBLIC_KEY);
+// [학습] 서버 설정(로그인 방식 authMode 포함)을 한 번만 받아 옵니다.
+function getServerConfig() {
+  if (!configPromise) {
+    configPromise = fetch('/api/config')
+      .then(r => { if (!r.ok) throw new Error('서버 설정을 불러오지 못했습니다. 서버가 실행 중인지 확인하세요.'); return r.json(); })
+      .catch(e => { configPromise = null; throw e; });
+  }
+  return configPromise;
+}
 
-// [학습] 이 파일의 함수를 외부에서 import할 수 있도록 공개합니다.
-export { db };
+// [학습] 로그인용 클라이언트. 점검 모드(authMode='dev')에서는 만들지 않습니다.
+function getAuthClient() {
+  if (!clientPromise) {
+    clientPromise = getServerConfig()
+      .then(cfg => createClient(cfg.supabaseUrl, cfg.publishableKey))
+      .catch(e => { clientPromise = null; throw e; });
+  }
+  return clientPromise;
+}
+
+const isDevMode = async () => (await getServerConfig()).authMode === 'dev';
+
+export { getAuthClient, getServerConfig, isDevMode };
