@@ -104,7 +104,7 @@ v1에서 복사만 해 두었던 파일(코드 상품사전 `catalog.js`, `produ
 
 처음 한 번:
 
-1. Node.js 22 LTS 이상 설치 (`node -v`로 확인, 22.12 이상)
+1. Node.js 24 LTS 설치 (`node -v`로 확인, v24.x). Render도 `package.json`의 `engines`(24.x)를 보고 같은 버전을 씀
 2. `.env.example`을 복사해 `.env`를 만들고 값을 채웁니다. (Supabase 대시보드 > Project Settings > API Keys)
    - `SUPABASE_SECRET_KEY`는 서버 전용입니다. 카카오톡·GitHub에 올리지 마세요. `.gitignore`에 `.env`가 들어 있습니다.
 3. `npm install` (패키지를 `node_modules/`에 설치)
