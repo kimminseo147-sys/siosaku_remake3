@@ -9,7 +9,7 @@ import { localDay } from './domain/dates.js';
 import { RECEIPT, MOVEMENT, REVIEW, showQty, rowStatus, summarizeRows, buildCorrection, canVerify, verifiableAfter } from './domain/inventoryRows.js';
 import { parseReport } from './parsers/kakaoReport.js';
 import { analyzeExcelRows } from './parsers/excelImport.js';
-import { summarizeRange } from './domain/salesStats.js';
+import { summarizeRange, rankStockouts, STOCKOUT_MIN_DAYS } from './domain/salesStats.js';
 import { signIn, signOut, getAccessToken, onAuthChange, isDevMode } from './services/authService.js';
 import { startIdleWatch, isSessionIdleExpired } from './services/idleSession.js';
 import { importExcelDays, loadMe, loadCatalog, loadInventory, loadInventoryRange, verifyRow, correctRow, rejectRow, runForecast, loadForecastResults, replayForecast, saveOpeningReport, saveClosingReport } from './services/inventoryRepository.js';
@@ -169,7 +169,7 @@ function ReportPanel({ storeCode, products, defaultDate, busy, setBusy, onSaved,
       {parsed.warnings.length > 0 && <div className="notice">{parsed.warnings.join('\n')}</div>}
       {parsed.issues.length > 0 && <div className="notice error">{parsed.issues.join('\n')}</div>}
       <div className="tablebox"><table className="data">
-        <thead><tr><th>상품 (원문)</th><th>{type === 'opening' ? '오픈' : '마감'}</th><th>확인</th></tr></thead>
+        <thead><tr><th>상품 (원문)</th><th className="num">{type === 'opening' ? '오픈' : '마감'}</th><th>확인</th></tr></thead>
         <tbody>{lines.map(l => <tr key={l.row} className={l.skipped ? 'skipped' : ''}>
           <td>{l.product ? l.product.name : <select id={`pick-${l.row}`} className="control" value={choices[l.row]?.productName || ''} onChange={e => choose(l.row, { productName: e.target.value })}>
             <option value="">상품 선택…</option><option value={SKIP}>이 줄 빼기</option>
@@ -366,7 +366,7 @@ function RecordTab({ storeCode, canEdit, targetIds, products, onError, onMessage
 
     {inventory && rows.length === 0 && <p>이 날짜에 등록된 재고가 없습니다.</p>}
     {shown.length > 0 && <div className="tablebox"><table className="data">
-      <thead><tr><th>상품명</th><th>오픈</th><th>마감</th><th>판매량</th><th>입고</th><th>이동</th><th>상태</th>{canEdit && <th>작업</th>}</tr></thead>
+      <thead><tr><th>상품명</th><th className="num">오픈</th><th className="num">마감</th><th className="num">판매량</th><th>입고</th><th>이동</th><th>상태</th>{canEdit && <th>작업</th>}</tr></thead>
       <tbody>{shown.map(row => {
         const status = rowStatus(row);
         return <React.Fragment key={row.inventory_id}>
@@ -418,6 +418,7 @@ function StatsTab({ storeCode, onError }) {
   useEffect(() => { load(); }, [storeCode]);
   const report = useMemo(() => data ? summarizeRange(data.items) : null, [data]);
   const top = report?.byProduct[0]?.total || 1;
+  const stockoutRank = useMemo(() => report ? rankStockouts(report.byProduct) : { ranked: [], lowSample: [] }, [report]);
   return <>
     <section className="panel">
       <h2>📊 판매 분석</h2>
@@ -426,7 +427,6 @@ function StatsTab({ storeCode, onError }) {
         <label className="subtle">종료 <input id="stats-to" className="control" type="date" value={to} onChange={e => setTo(e.target.value)} /></label>
         <button className="btn small" disabled={busy} onClick={load}>{busy ? '조회 중…' : '조회'}</button>
       </div>
-      <p className="subtle" style={{ marginTop: 8 }}>기록이 하나도 없는 날은 휴무일로 셉니다(팀 결정). 판매량은 DB가 확정한 줄의 관측 판매량(오픈 − 마감)만 합산합니다. 검토 대기·반려·미입고·조건 미충족 줄은 빠집니다. 최대 400일.</p>
       {missing && <div className="notice">기간 조회 DB 함수(bq_get_inventory_range)가 아직 설치되지 않았습니다. 초안: database/proposals/001_read_rpcs_PROPOSAL_DO_NOT_RUN.sql (팀원 3 검토 후 설치)</div>}
       {report && <div className="metrics">
         <div className="metric"><strong>{report.days}</strong><span>보고 날짜 · 휴무 {data ? Math.round((Date.parse(data.to) - Date.parse(data.from)) / DAY) + 1 - report.days : 0}일</span></div>
@@ -442,14 +442,20 @@ function StatsTab({ storeCode, onError }) {
           <div className="bar"><i style={{ width: `${100 * p.total / top}%` }} /></div></div>)}
       </section>
       <section className="panel"><h2>📅 평일·주말 평균</h2>
-        <p className="subtle">주말 = 토·일. 공휴일은 반영하지 않았습니다(예측 모델은 등록된 공휴일을 주말로 봅니다).</p>
-        <div className="tablebox"><table className="data"><thead><tr><th>상품</th><th>평일 평균</th><th>주말 평균</th><th>평일 표본</th><th>주말 표본</th></tr></thead><tbody>
-          {report.byProduct.map(p => <tr key={p.product_id}><td>{p.name}</td><td className="num">{p.wkN ? (p.wkTotal / p.wkN).toFixed(1) : '–'}</td><td className="num">{p.weN ? (p.weTotal / p.weN).toFixed(1) : '–'}</td><td className="num">{p.wkN}</td><td className="num">{p.weN}</td></tr>)}
+        <div className="tablebox"><table className="data compact"><thead><tr><th>상품</th><th className="num">평일 평균</th><th className="num">주말 평균</th></tr></thead><tbody>
+          {report.byProduct.map(p => <tr key={p.product_id}><td className="name">{p.name}</td><td className="num">{p.wkN ? (p.wkTotal / p.wkN).toFixed(1) : '–'}</td><td className="num">{p.weN ? (p.weTotal / p.weN).toFixed(1) : '–'}</td></tr>)}
         </tbody></table></div>
       </section>
-      <section className="panel"><h2>⚠️ 마감 0 (품절 의심)</h2><p className="subtle">마감 0은 품절 가능성을 뜻할 뿐, 실제 놓친 수요는 알 수 없습니다.</p>
-        {report.byProduct.filter(p => p.stockouts > 0).sort((a, b) => b.stockouts / b.days - a.stockouts / a.days).slice(0, 15).map(p =>
-          <div className="summaryline" key={p.product_id}><span>{p.name}</span><b>{p.stockouts}/{p.days}일 ({(p.stockouts / p.days * 100).toFixed(0)}%)</b></div>)}
+      {/* [학습] 품절 빈도 순위: 판매일 30일 이상만 순위, 30일 미만은 뒤쪽 참고 목록 (domain/salesStats.js rankStockouts) */}
+      <section className="panel"><h2>⚠️ 품절 빈도 순위</h2><p className="subtle">마감 수량이 0인 날을 품절로 셉니다. 판매일 {STOCKOUT_MIN_DAYS}일 이상인 상품만 순위를 매깁니다.</p>
+        {stockoutRank.ranked.length === 0 && stockoutRank.lowSample.length === 0 && <p>품절된 날이 없습니다.</p>}
+        {stockoutRank.ranked.slice(0, 15).map((p, i) =>
+          <div className="summaryline" key={p.product_id}><span className="name">{i + 1}. {p.name}</span><b>{(p.stockouts / p.days * 100).toFixed(0)}% <span className="subtle">({p.stockouts}/{p.days}일)</span></b></div>)}
+        {stockoutRank.lowSample.length > 0 && <>
+          <h3 className="subtle" style={{ marginTop: 14, fontSize: 13 }}>참고: 판매일 {STOCKOUT_MIN_DAYS}일 미만 (자료가 적어 순위 제외)</h3>
+          {stockoutRank.lowSample.map(p =>
+            <div className="summaryline muted" key={p.product_id}><span>{p.name}</span><span>{(p.stockouts / p.days * 100).toFixed(0)}% <span className="subtle">({p.stockouts}/{p.days}일)</span></span></div>)}
+        </>}
       </section>
     </>}
   </>;
@@ -495,30 +501,28 @@ function ForecastTab({ storeCode, canEdit, targets, onError, onMessage }) {
 
   const items = result?.items || [];
   return <section className="panel">
-    <h2>🧮 예상 판매수요 (EWMA v3.3)</h2>
+    <h2>🧮 예상 판매수요</h2>
     <div className="row">
       <label className="subtle">예측일 <input id="forecast-date" className="control" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
       <button className="btn secondary small" disabled={busy} onClick={load}>결과 조회</button>
       {canEdit && <button className="btn small" disabled={busy} onClick={run}>{busy ? '처리 중…' : '예측 실행'}</button>}
     </div>
     {isPast && <div className="notice" style={{ marginTop: 10 }}>지난 날짜입니다. 이 날짜의 예측은 과거 시점 검증용이며, 그날 이후 데이터는 계산에 쓰이지 않습니다.</div>}
-    <p className="subtle" style={{ marginTop: 8 }}>값은 소수 2자리 예상 판매수요이며 생산량·발주량이 아닙니다. 마감 0이 포함된 관측은 실제 수요보다 작을 수 있습니다.</p>
 
     {lastRun && <div className="notice good">실행 {lastRun.model_version} · {lastRun.day_type === 'weekend' ? '주말' : '평일'} 그룹 · 학습 관측 중 마감 0 {lastRun.closing_zero_training_observations ?? '–'}건</div>}
     {missing && <div className="notice">예측 결과 조회 DB 함수(bq_get_forecast_results)가 아직 설치되지 않았습니다. 예측을 실행하면 저장된 값만 간단히 보여드립니다. 초안: database/proposals/001_read_rpcs_PROPOSAL_DO_NOT_RUN.sql</div>}
 
     {result && !result.run && <p>이 날짜의 예측 실행 기록이 없습니다.{canEdit ? ' "예측 실행"을 눌러 만드세요.' : ''}</p>}
     {result?.run && <>
-      <div className="subtle" style={{ margin: '8px 0' }}>실행 {String(result.run.created_at).slice(0, 16).replace('T', ' ')} · {result.run.model_version} · {result.run.day_type === 'weekend' ? '주말' : '평일'} 그룹 · 최소 관측 {result.run.min_history}건</div>
-      <div className="tablebox"><table className="data">
-        <thead><tr><th>상품</th><th>예상 판매수요</th><th>α</th><th>관측치</th><th>마감 0</th><th>상태</th></tr></thead>
+      <div className="tablebox" style={{ marginTop: 8 }}><table className="data">
+        <thead><tr><th className="center">상품</th><th className="num">예상 판매수요</th><th className="num">α</th><th className="num">관측일자</th><th className="num">품절 빈도</th><th className="center">상태</th></tr></thead>
         <tbody>{items.map(it => <tr key={it.product_id}>
-          <td>{it.product_name}</td>
+          <td className="name center">{it.product_name}</td>
           <td className="num"><b>{it.forecast_status === 'ok' ? fmtQty2(it.predicted_demand_qty) : '미생성'}</b></td>
           <td className="num">{it.alpha_used}</td>
           <td className="num">{it.history_count}</td>
           <td className="num">{it.closing_zero_observations}</td>
-          <td>{it.forecast_status === 'ok' ? <span className="badge good">ok</span> : <span className="badge warn">관측치 부족 ({it.history_count}/{result.run.min_history})</span>}</td>
+          <td className="center">{it.forecast_status === 'ok' ? <span className="badge good">ok</span> : <span className="badge warn">관측일자 부족 ({it.history_count}/{result.run.min_history})</span>}</td>
         </tr>)}</tbody>
       </table></div>
       <button className="btn secondary small" style={{ marginTop: 8 }} disabled={busy} onClick={check}>저장값 재현 확인</button>

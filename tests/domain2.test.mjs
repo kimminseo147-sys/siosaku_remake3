@@ -37,3 +37,18 @@ test('판매 분석: 확정 판매량만 집계, 토·일은 주말', () => {
   assert.deepEqual([p.total, p.days, p.wkTotal, p.weTotal, p.stockouts], [30, 2, 10, 20, 1]);
   assert.deepEqual([r.quality.used, r.quality.pending, r.quality.notReceived, r.days], [2, 1, 1, 4]);
 });
+
+// [학습] 품절 빈도 순위: 판매일 30일 미만은 순위에서 빼고 참고 목록으로 (2026-11-24)
+import { rankStockouts } from '../frontend/domain/salesStats.js';
+test('품절 빈도 순위: 30일 이상만 순위, 미만은 참고, 품절 0은 제외', () => {
+  const P = (name, stockouts, days) => ({ product_id: name, name, stockouts, days });
+  const { ranked, lowSample } = rankStockouts([
+    P('메론', 45, 134), P('우유', 46, 123), P('신상', 5, 6), P('갈릭', 6, 132), P('불닭', 0, 57), P('소량', 2, 20), P('경계', 3, 30),
+  ]);
+  assert.deepEqual(ranked.map(p => p.name), ['우유', '메론', '경계', '갈릭']);
+  assert.deepEqual(lowSample.map(p => p.name), ['신상', '소량']);
+});
+test('품절 빈도 순위: 빈도가 같으면 품절일이 많은 순', () => {
+  const { ranked } = rankStockouts([{ product_id: 'a', name: 'a', stockouts: 10, days: 40 }, { product_id: 'b', name: 'b', stockouts: 20, days: 80 }]);
+  assert.deepEqual(ranked.map(p => p.name), ['b', 'a']);
+});

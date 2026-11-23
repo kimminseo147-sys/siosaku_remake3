@@ -25,4 +25,19 @@ function summarizeRange(items) {
   return { days: dates.size, quality, byProduct };
 }
 
-export { summarizeRange, isWeekend };
+// [학습] 품절 빈도 순위 (2026-11-24 팀장 결정)
+// [학습]   품절 빈도 = 품절일(마감 0) ÷ 판매일. 빈도가 높은 순, 같으면 품절일이 많은 순.
+// [학습]   판매일이 minDays(30일) 미만인 상품은 표본이 적어 믿기 어려우므로 순위에서 빼고 뒤쪽 "참고" 목록으로 보냅니다.
+// [학습]   품절이 한 번도 없는 상품은 두 목록 모두에서 뺍니다.
+const STOCKOUT_MIN_DAYS = 30;
+function rankStockouts(byProduct, minDays = STOCKOUT_MIN_DAYS) {
+  const rate = p => p.stockouts / p.days;
+  const order = (a, b) => (rate(b) - rate(a)) || (b.stockouts - a.stockouts) || (b.days - a.days);
+  const withStockouts = byProduct.filter(p => p.stockouts > 0 && p.days > 0);
+  return {
+    ranked: withStockouts.filter(p => p.days >= minDays).sort(order),
+    lowSample: withStockouts.filter(p => p.days < minDays).sort(order),
+  };
+}
+
+export { summarizeRange, isWeekend, rankStockouts, STOCKOUT_MIN_DAYS };
