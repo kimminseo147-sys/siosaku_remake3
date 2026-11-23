@@ -19,21 +19,21 @@ const fmtQty2 = v => (v === null || v === undefined ? '–' : Number(v).toFixed(
 
 // ── 로그인 ─────────────────────────────────────────────────
 function LoginPanel({ onDone }) {
-  const [email, setEmail] = useState(''), [password, setPassword] = useState('');
+  const [loginId, setLoginId] = useState(''), [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   async function submit(e) {
     e.preventDefault();
     setBusy(true); setError('');
-    try { await signIn(email.trim(), password); onDone(); }
+    try { await signIn(loginId, password); onDone(); }
     catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
   return <main className="wrap"><section className="panel login">
     <h2>로그인</h2>
-    <p className="subtle">관리자가 만들어 준 계정으로 로그인하세요. 지점 권한은 관리자가 따로 부여합니다.</p>
+    <p className="subtle">지점 아이디와 비밀번호로 로그인하세요. 계정·비밀번호는 관리자에게 문의하세요.</p>
     {error && <div className="notice error">⚠️ {error}</div>}
     <form onSubmit={submit} className="loginform">
-      <label className="field"><span>이메일</span><input id="login-email" className="control" type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} /></label>
+      <label className="field"><span>아이디</span><input id="login-id" className="control" type="text" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} required value={loginId} onChange={e => setLoginId(e.target.value)} /></label>
       <label className="field"><span>비밀번호</span><input id="login-password" className="control" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} /></label>
       <button className="btn full" type="submit" disabled={busy}>{busy ? '확인 중…' : '로그인'}</button>
     </form>

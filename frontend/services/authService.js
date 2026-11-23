@@ -1,11 +1,14 @@
 // [학습] 로그인·로그아웃·토큰 꺼내기. 화면(App.jsx)은 Supabase를 직접 모르고 이 함수들만 씁니다.
 import { getAuthClient, isDevMode } from '../config/supabase.js';
+import { toLoginEmail } from '../domain/loginId.js';
 
-// [학습] 이메일·비밀번호 로그인. 계정은 관리자가 Supabase 대시보드에서 만들어 줍니다(회원가입 화면 없음).
-async function signIn(email, password) {
+// [학습] 아이디(또는 이메일)·비밀번호 로그인. 계정은 관리자가 Supabase 대시보드에서 만들어 줍니다(회원가입 화면 없음).
+// [학습]   아이디는 toLoginEmail로 이메일 형태로 바꿔서 보냅니다(예: siosakuhanam → siosakuhanam@siosaku.local).
+async function signIn(loginId, password) {
+  const email = toLoginEmail(loginId);
   const auth = (await getAuthClient()).auth;
   const { error } = await auth.signInWithPassword({ email, password });
-  if (error) throw new Error(error.message === 'Invalid login credentials' ? '이메일 또는 비밀번호가 올바르지 않습니다.' : error.message);
+  if (error) throw new Error(error.message === 'Invalid login credentials' ? '아이디 또는 비밀번호가 올바르지 않습니다.' : error.message);
 }
 
 async function signOut() {
