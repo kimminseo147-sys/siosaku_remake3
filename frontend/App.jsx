@@ -11,9 +11,11 @@ import { parseReport } from './parsers/kakaoReport.js';
 import { analyzeExcelRows } from './parsers/excelImport.js';
 import { summarizeRange } from './domain/salesStats.js';
 import { signIn, signOut, getAccessToken, onAuthChange, isDevMode } from './services/authService.js';
+import { startIdleWatch, isSessionIdleExpired } from './services/idleSession.js';
 import { importExcelDays, loadMe, loadCatalog, loadInventory, loadInventoryRange, verifyRow, correctRow, rejectRow, runForecast, loadForecastResults, replayForecast, saveOpeningReport, saveClosingReport } from './services/inventoryRepository.js';
 
 const DAY = 86400000;
+const IDLE_LOGOUT_MESSAGE = '3시간 동안 사용하지 않아 자동으로 로그아웃되었습니다. 다시 로그인해 주세요.';
 const isMissingRpc = err => err?.code === 'RPC_MISSING';
 const fmtQty2 = v => (v === null || v === undefined ? '–' : Number(v).toFixed(2));
 
@@ -548,12 +550,25 @@ function App() {
     (async () => {
       try {
         if (await isDevMode()) { setDevMode(true); setAuthState('in'); return; }
-        setAuthState((await getAccessToken()) ? 'in' : 'out');
+        const token = await getAccessToken();
+        // [학습] 앱을 열었을 때 이미 3시간이 지났으면, 데이터를 불러오기 전에 바로 로그아웃합니다.
+        if (token && isSessionIdleExpired()) {
+          await signOut().catch(() => {});
+          setError(IDLE_LOGOUT_MESSAGE); setAuthState('out');
+        } else setAuthState(token ? 'in' : 'out');
         unsubscribe = await onAuthChange(isIn => setAuthState(isIn ? 'in' : 'out'));
       } catch (e) { setError(e.message); setAuthState('out'); }
     })();
     return () => unsubscribe();
   }, []);
+
+  // [학습] 자동 로그아웃 감시: 로그인 상태일 때만 켭니다(점검 모드 제외). 3시간 동안 사용하지 않으면 로그아웃.
+  useEffect(() => {
+    if (authState !== 'in' || devMode) return;
+    return startIdleWatch(() => {
+      signOut().catch(() => {}).finally(() => { setMessage(''); setError(IDLE_LOGOUT_MESSAGE); setAuthState('out'); });
+    });
+  }, [authState, devMode]);
 
   useEffect(() => {
     if (authState !== 'in') { setMe(null); return; }
